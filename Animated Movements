@@ -1,0 +1,65 @@
+# This example uses GPS data from reindeer, and visualises their movements within their habitats. 
+
+# read in data
+movetest1 <- read.csv("2018_yes_meancoordinates.csv", fileEncoding="UTF-8-BOM", header = T, sep=',')
+
+# create the data.frame
+date <- as.Date(movetest1$Time, origin = "2018-05-01")
+date3 <- as.POSIXct(date, format="%Y-%m-%d")
+Xchar <- as.character(movetest1$xstart)
+Ychar <- as.character(movetest1$ystart)
+movetest3 <- data.frame(cbind(X=c(Xchar), Y=c(Ychar)))
+movetest3.5 <- unfactor(movetest3[,1:2])
+movetest4<-cbind.data.frame(movetest3.5, date3)
+movetest5 <- na.omit(movetest4)
+                                              
+#check that the items in the dataframe are of the right class (numericx2, posixct)
+lapply(movetest5, class)
+
+#create the move object from the data.frame
+datawoo <- df2move(movetest5, proj=CRS("+init=epsg:27700"), x="X", y="Y", time="date3")
+
+
+##########################################################################
+
+##########################################################################
+
+
+# align move_data to a uniform time scale
+m <- align_move(datawoo, res = 1440 , digit = 0, unit = "mins")
+crs(m)<- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 "
+
+
+
+#add Digital Elevation Model raster
+DEM <- raster("DEM_longlat.tif")
+names(DEM)[1] <- 'Elevation (m above sea)'
+DEM
+crs(DEM)
+#create raster list
+r_list <- list(DEM)
+timez <- 42856.00
+r_times <- as.POSIXct(timez, origin="2017-05-01")
+
+
+
+
+# Creating the frames that constitute the animations, where the path is superimposed
+# on to a DEM 
+frames <- frames_spatial(m, r_list = r_list, r_times = r_times, r_type = "gradient",
+                         fade_raster = TRUE, path_legend = FALSE,path_size = 1
+                         )%>% 
+  add_labels(x = "Longitude", y = "Latitude") %>% # add some customizations, such as axis labels
+  add_northarrow() %>% 
+  add_scalebar() %>% 
+  add_timestamps(m, type = "label")
+  
+
+frames <- add_colourscale(frames, type = "gradient", colours= c("black", "grey", "white"),
+                          legend_title = "Elevation (m above sea level)")
+
+#visualise the 125th frame to make sure it has worked  
+frames[[125]]
+
+#animate the frames and save as a gif. 
+animated <- animate_frames(frames, out_file = "test2i.gif", fps=5)
